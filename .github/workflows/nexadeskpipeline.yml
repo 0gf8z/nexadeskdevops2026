@@ -1,12 +1,9 @@
 name: CI/CD
-
 on:
   push:
     branches: [main, develop]
-
 env:
   IMAGE: ghcr.io/${{ github.repository }}/nexadesk-api:${{ github.sha }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,32 +11,22 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Testes
-        working-directory: app/api
+      - working-directory: app/api
         run: |
           npm install
           npm test
           npm run lint
-
-      - name: Docker Login
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Docker Build e Push
-        run: |
+      - run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - run: |
           docker build -t $IMAGE app/api
           docker push $IMAGE
-
-      - name: Deploy Staging
-        if: github.ref == 'refs/heads/develop'
+      - if: github.ref == 'refs/heads/develop'
         run: |
           echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
-          kubectl --kubeconfig=kubeconfig apply -f environments/staging/app.yaml
+          kubectl --kubeconfig=kubeconfig apply -f environments/staging/deploymentstaging.yaml
           kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-staging
-
-      - name: Deploy Prod
-        if: github.ref == 'refs/heads/main'
+      - if: github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > kubeconfig
-          kubectl --kubeconfig=kubeconfig apply -f environments/prod/app.yaml
+          kubectl --kubeconfig=kubeconfig apply -f environments/prod/deploymentprod.yaml
           kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-prod
