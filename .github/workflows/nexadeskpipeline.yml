@@ -5,82 +5,41 @@ on:
     branches: [main, develop]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE: ${{ github.repository }}/nexadesk-api
-  TZ: America/Fortaleza
+  IMAGE: ghcr.io/${{ github.repository }}/nexadesk-api:${{ github.sha }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Debug - Verificar arquivos
-        run: |
-          echo "=== Raiz ==="
-          ls -la
-          echo "=== environments ==="
-          ls -la environments/ 2>/dev/null || echo "Pasta environments NAO EXISTE"
-          echo "=== Todos YAML ==="
-          find . -name "*.yaml" -o -name "*.yml" 2>/dev/null
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: app/api/package-lock.json
 
       - name: Testes
         working-directory: app/api
         run: |
-          npm ci
+          npm install
           npm test
           npm run lint
 
-      - name: Login Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker Login
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build e Push
+      - name: Docker Build e Push
         run: |
-          docker build -t $REGISTRY/$IMAGE:${{ github.sha }} app/api
-          docker push $REGISTRY/$IMAGE:${{ github.sha }}
-          
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag $REGISTRY/$IMAGE:${{ github.sha }} $REGISTRY/$IMAGE:latest
-            docker push $REGISTRY/$IMAGE:latest
-          fi
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.30.0'
+          docker build -t $IMAGE app/api
+          docker push $IMAGE
 
       - name: Deploy Staging
         if: github.ref == 'refs/heads/develop'
-        env:
-          KUBECONFIG_STAGING: ${{ secrets.KUBECONFIG_STAGING }}
         run: |
-          echo "$KUBECONFIG_STAGING" | base64 -d > kubeconfig
-          export KUBECONFIG=kubeconfig
-          kubectl apply -f environments/staging/
-          kubectl set image deployment/nexadesk-api nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} -n nexadesk-staging
-          kubectl rollout status deployment/nexadesk-api -n nexadesk-staging
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
+          kubectl --kubeconfig=kubeconfig apply -f environments/staging/app.yaml
+          kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-staging
 
-      - name: Deploy Production
+      - name: Deploy Prod
         if: github.ref == 'refs/heads/main'
-        env:
-          KUBECONFIG_PROD: ${{ secrets.KUBECONFIG_PROD }}
         run: |
-          echo "$KUBECONFIG_PROD" | base64 -d > kubeconfig
-          export KUBECONFIG=kubeconfig
-          kubectl apply -f environments/prod/
-          kubectl set image deployment/nexadesk-api nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} -n nexadesk-prod
-          kubectl rollout status deployment/nexadesk-api -n nexadesk-prod
+          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > kubeconfig
+          kubectl --kubeconfig=kubeconfig apply -f environments/prod/app.yaml
+          kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-prod
