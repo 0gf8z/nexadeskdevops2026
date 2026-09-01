@@ -20,13 +20,3 @@ jobs:
       - run: |
           docker build -t $IMAGE app/api
           docker push $IMAGE
-      - if: github.ref == 'refs/heads/develop'
-        run: |
-          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
-          kubectl --kubeconfig=kubeconfig apply -f environments/staging/deploymentstaging.yaml
-          kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-staging
-      - if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > kubeconfig
-          kubectl --kubeconfig=kubeconfig apply -f environments/prod/deploymentprod.yaml
-          kubectl --kubeconfig=kubeconfig set image deployment/nexadesk-api nexadesk-api=$IMAGE -n nexadesk-prod
