@@ -1,0 +1,28 @@
+{
+  "title": "NexaDesk Observabilidade",
+  "timezone": "America/Fortaleza",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Disponibilidade da API",
+      "type": "stat",
+      "targets": []
+    },
+    {
+      "title": "Tempo de resposta",
+      "type": "timeseries",
+      "targets": []
+    },
+    {
+      "title": "Erros após deploy",
+      "type": "timeseries",
+      "targets": []
+    },
+    {
+      "title": "Chamados atendidos",
+      "type": "timeseries",
+      "targets": []
+    }
+  ]
+}

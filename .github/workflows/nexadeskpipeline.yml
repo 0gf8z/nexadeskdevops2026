@@ -1,0 +1,77 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}/nexadesk-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Testes
+        run: |
+          npm ci
+          npm test
+          npm run lint
+      
+      - name: Login Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build e Push
+        run: |
+          docker build -t $REGISTRY/$IMAGE:${{ github.sha }} app/api
+          docker push $REGISTRY/$IMAGE:${{ github.sha }}
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker tag $REGISTRY/$IMAGE:${{ github.sha }} $REGISTRY/$IMAGE:latest
+            docker push $REGISTRY/$IMAGE:latest
+          fi
+
+  staging:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy Staging
+        run: |
+          kubectl set image deployment/nexadesk-api \
+            nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} \
+            -n nexadesk-staging
+          kubectl rollout status deployment/nexadesk-api -n nexadesk-staging
+
+  production:
+    runs-on: ubuntu-latest
+    needs: staging
+    if: github.ref == 'refs/heads/main'
+    environment: 
+      name: production
+      url: https://app.nexadesk.com.br
+    steps:
+      - run: |
+          kubectl set image deployment/nexadesk-api \
+            nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} \
+            -n nexadesk-prod
+          kubectl rollout status deployment/nexadesk-api -n nexadesk-prod
+
+  rollback:
+    runs-on: ubuntu-latest
+    needs: production
+    if: failure()
+    environment: production
+    steps:
+      - run: |
+          kubectl rollout undo deployment/nexadesk-api -n nexadesk-prod
