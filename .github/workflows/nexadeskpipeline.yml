@@ -15,20 +15,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Testes
         run: |
-          npm ci
+          npm install
           npm test
           npm run lint
-      
+
       - name: Login Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Build e Push
         run: |
           docker build -t $REGISTRY/$IMAGE:${{ github.sha }} app/api
@@ -45,7 +45,7 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Deploy Staging
         run: |
           kubectl set image deployment/nexadesk-api \
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: staging
     if: github.ref == 'refs/heads/main'
-    environment: 
+    environment:
       name: production
       url: https://app.nexadesk.com.br
     steps:
