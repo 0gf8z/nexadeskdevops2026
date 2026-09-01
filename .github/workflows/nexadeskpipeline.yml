@@ -18,6 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug - Verificar arquivos
+        run: |
+          echo "=== Raiz ==="
+          ls -la
+          echo "=== environments ==="
+          ls -la environments/ 2>/dev/null || echo "Pasta environments NAO EXISTE"
+          echo "=== Todos YAML ==="
+          find . -name "*.yaml" -o -name "*.yml" 2>/dev/null
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -61,7 +70,7 @@ jobs:
         run: |
           echo "$KUBECONFIG_STAGING" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
-          kubectl apply -f environments/staging/app.yaml
+          kubectl apply -f environments/staging/
           kubectl set image deployment/nexadesk-api nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} -n nexadesk-staging
           kubectl rollout status deployment/nexadesk-api -n nexadesk-staging
 
@@ -72,6 +81,6 @@ jobs:
         run: |
           echo "$KUBECONFIG_PROD" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
-          kubectl apply -f environments/prod/app.yaml
+          kubectl apply -f environments/prod/
           kubectl set image deployment/nexadesk-api nexadesk-api=$REGISTRY/$IMAGE:${{ github.sha }} -n nexadesk-prod
           kubectl rollout status deployment/nexadesk-api -n nexadesk-prod
