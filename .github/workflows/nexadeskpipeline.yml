@@ -1,20 +1,62 @@
 name: CI/CD
+
 on:
   push:
     branches: [main]
+
 jobs:
-  build:
+  testes:
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Login no GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build e push
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - working-directory: app/api
         run: |
-          docker build -t ghcr.io/0gf8z/nexadesk-api:latest app/api
-          docker push ghcr.io/0gf8z/nexadesk-api:latest
+          npm install
+          npm test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: testes
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - run: |
+          docker build -t ghcr.io/0gf8z/nexadesk-api:${{ github.sha }} app/api
+          docker push ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}
+
+  staging:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sed -i "s|image: .*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/staging/deploymentstaging.yaml
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add environments/staging/
+          git commit -m "deploy staging: ${{ github.sha }}" || echo "ok"
+          git push
+
+  producao:
+    runs-on: ubuntu-latest
+    needs: staging
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sed -i "s|image: .*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/prod/deploymentprod.yaml
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add environments/prod/
+          git commit -m "deploy prod: ${{ github.sha }}" || echo "ok"
+          git push
