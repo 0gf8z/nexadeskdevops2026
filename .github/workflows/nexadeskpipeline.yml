@@ -5,11 +5,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build da imagem
-        run: docker build -t nexadesk-api app/api
+      - name: Login no GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Enviar imagem
-        run: docker push ghcr.io/0gf8z/nexadesk-api:latest
+      - name: Build e push
+        run: |
+          docker build -t ghcr.io/0gf8z/nexadesk-api:latest app/api
+          docker push ghcr.io/0gf8z/nexadesk-api:latest
