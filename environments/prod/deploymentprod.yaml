@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: nexadesk-prod
+  name: nexadesk-staging
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nexadesk-api
-  namespace: nexadesk-prod
+  namespace: nexadesk-staging
 spec:
   replicas: 2
   selector:
@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: nexadesk-api
-        image: ghcr.io/0gf8z/nexadeskdevops2026/nexadesk-api:95847ef0bd2aaed9e1bd94b2dc517744d2ffdd8d
+        image: ghcr.io/0gf8z/nexadesk-api:latest
         ports:
         - containerPort: 3000
         resources:
@@ -39,7 +39,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nexadesk-api
-  namespace: nexadesk-prod
+  namespace: nexadesk-staging
 spec:
   type: NodePort
   selector:

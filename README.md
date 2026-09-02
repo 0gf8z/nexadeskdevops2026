@@ -1,51 +1,86 @@
-NexaDesk DevOps
-Estrutura
+# NexaDesk API
 
-    app/api/ — Código fonte da API Node.js
-    .github/workflows/ — Pipeline CI/CD (GitHub Actions)
-    environments/staging/ — Manifestos Kubernetes para staging
-    environments/prod/ — Manifestos Kubernetes para produção
-    argocd-app.yaml — Configuração GitOps (ArgoCD)
-    observabilidade/ — Dashboard Grafana
+API simples de gestão de tickets feita com Node.js e Docker.
 
-Executar localmente
+## Estrutura
 
-cd app/api
-npm install
-node index.js
+```
 
-Acesse:
+├── app/api/                          # Código da API
+│   ├── Dockerfile                    # Imagem Docker da API
+│   └── index.js                      # Servidor HTTP com rotas
+├── argocd-app.yaml                   # Aplicação Argo CD (GitOps)
+├── environments/
+│   ├── prod/deploymentprod.yaml      # Manifests de produção
+│   └── staging/deploymentstaging.yaml# Manifests de staging
+├── observabilidade/grafana.json      # Dashboard Grafana
+├── README.md                         # Este arquivo
+└── RUNBOOK.md                        # Checklist de deploy e incidentes
+```
 
-    http://localhost:3000/health
-    http://localhost:3000/tickets
+## Executar localmente
 
-Pipeline CI/CD
-
-    Push no GitHub dispara o workflow
-    Instala dependências, executa testes e lint
-    Build e push da imagem Docker para o GHCR
-    Promoção automática da imagem nos manifests de staging e produção
-    ArgoCD sincroniza o cluster Kubernetes com o repositório
-
-Deploy no Minikube
-
-minikube start
-kubectl apply -f environments/staging/deploymentstaging.yaml
-kubectl apply -f environments/prod/deploymentprod.yaml
-kubectl get pods -n nexadesk-staging
-kubectl get pods -n nexadesk-prod
-
-Grafana
-
-Usuario: admin Senha: admin
-
-Importe o arquivo observabilidade/grafana.json no menu Dashboards > Import.
-Fuso horário
-
-America/Fortaleza
-
-## Rollback
+### 1. Clonar o repositório
 
 ```bash
-kubectl rollout undo deployment/nexadesk-api -n nexadesk-staging
-kubectl rollout undo deployment/nexadesk-api -n nexadesk-prod
+git clone https://github.com/0gf8z/nexadeskdevops2026.git
+cd nexadeskdevops2026/app/api
+```
+
+### 2. Rodar com Node.js
+
+```bash
+npm install
+node index.js
+```
+
+A API estará em http://localhost:3000
+
+### 3. Rodar com Docker
+
+Na raiz do projeto:
+
+```bash
+docker build -t nexadesk-api app/api
+docker run -p 3000:3000 nexadesk-api
+```
+
+## Rotas da API
+
+| Rota       | Descrição              |
+|------------|------------------------|
+| /health    | Health check           |
+| /ready     | Readiness probe        |
+| /tickets   | Lista de chamados      |
+
+## Fluxo de Deploy (CI/CD)
+
+O deploy é feito automaticamente pelo GitHub Actions com promoção entre ambientes.
+
+1. **Push na main** dispara o pipeline
+2. **Build**: cria a imagem Docker e envia para o GHCR
+3. **Staging**: atualiza o manifest de staging e o Argo CD aplica no cluster
+4. **Produção**: só depois que staging termina, atualiza o manifest de produção
+
+A ordem do pipeline é:
+
+```
+build --> staging --> producao
+```
+
+## GitOps
+
+O Argo CD observa o repositório e sincroniza automaticamente o ambiente de staging.
+
+## Observabilidade
+
+O arquivo `observabilidade/grafana.json` contém o dashboard com painéis para:
+
+- Disponibilidade da API
+- Tempo de resposta
+- Erros após deploy
+- Chamados atendidos
+
+## Documentação operacional
+
+Consulte o arquivo **RUNBOOK.md** para o checklist de deploy e resposta a incidentes.

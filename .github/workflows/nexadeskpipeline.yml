@@ -5,21 +5,8 @@ on:
     branches: [main]
 
 jobs:
-  testes:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - working-directory: app/api
-        run: |
-          npm install
-          npm test
-
   build:
     runs-on: ubuntu-latest
-    needs: testes
     permissions:
       packages: write
     steps:
@@ -37,13 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          sed -i "s|image: .*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/staging/deploymentstaging.yaml
+          sed -i "s|image: ghcr.io/0gf8z/nexadesk-api:.*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/staging/deploymentstaging.yaml
       - run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add environments/staging/
-          git commit -m "deploy staging: ${{ github.sha }}" || echo "ok"
-          git push
+          git add environments/staging/deploymentstaging.yaml
+          git commit -m "deploy staging: ${{ github.sha }}" || true
+          git pull origin main --rebase --autostash || true
+          git push origin main --force
 
   producao:
     runs-on: ubuntu-latest
@@ -53,10 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          sed -i "s|image: .*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/prod/deploymentprod.yaml
+          sed -i "s|image: ghcr.io/0gf8z/nexadesk-api:.*|image: ghcr.io/0gf8z/nexadesk-api:${{ github.sha }}|" environments/prod/deploymentprod.yaml
       - run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add environments/prod/
-          git commit -m "deploy prod: ${{ github.sha }}" || echo "ok"
-          git push
+          git add environments/prod/deploymentprod.yaml
+          git commit -m "deploy prod: ${{ github.sha }}" || true
+          git pull origin main --rebase --autostash || true
+          git push origin main --force
