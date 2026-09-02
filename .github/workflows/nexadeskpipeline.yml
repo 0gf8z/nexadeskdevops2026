@@ -1,0 +1,54 @@
+name: CI/CD
+on:
+  push:
+    branches: [main, develop]
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/nexadesk-api:${{ github.sha }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - run: |
+          docker build -t $IMAGE app/api
+          docker push $IMAGE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manifestos-k8s
+          path: environments/
+
+      - name: Validar YAMLs
+        run: |
+          grep -q "apiVersion" environments/staging/deploymentstaging.yaml
+          grep -q "apiVersion" environments/prod/deploymentprod.yaml
+          echo "YAMLs validos"
+
+      - name: Promover staging
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          sed -i "s|image: .*|image: $IMAGE|" environments/staging/deploymentstaging.yaml
+          git add environments/staging/deploymentstaging.yaml
+          git commit -m "promote staging" || echo "ok"
+          git push
+
+      - name: Promover producao
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          sed -i "s|image: .*|image: $IMAGE|" environments/prod/deploymentprod.yaml
+          git add environments/prod/deploymentprod.yaml
+          git commit -m "promote producao" || echo "ok"
+          git push
+
+      - name: Notificar
+        if: always()
+        run: echo "Pipeline finalizado - branch ${{ github.ref_name }}"
