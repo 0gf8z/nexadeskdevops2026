@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: nexadesk-api
-        image: ghcr.io/0gf8z/nexadesk-api:3ebe2a461b222adb5873560faf59d4b4d9d589f0
+        image: ghcr.io/0gf8z/nexadesk-api:c61e409cc5ceaa41dbeded61657c08c864f23157
         ports:
         - containerPort: 3000
         resources:
